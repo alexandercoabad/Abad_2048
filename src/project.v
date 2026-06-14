@@ -38,7 +38,6 @@ module tt_um_AbAdA_2048 (
   wire btn_right_in    = ui_in [ 1 ] ;
   wire btn_up_in       = ui_in [ 2 ] ;
   wire btn_down_in     = ui_in [ 3 ] ;
-  wire retro_colors_in = ui_in [ 4 ] ;
   wire btn_start_in    = ui_in [ 7 ] ;
 
   wire _unused_ok = &{ena, uio_in};
