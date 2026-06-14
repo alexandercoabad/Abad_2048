@@ -3,8 +3,8 @@
 project:
   title:        "Abad2048"      # Project title
   author:       "Alexander Co Abad"      # Your name
-  discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  "Abad2048"      # One line description of what your project does
+  discord:      "alexandercoabad_25756"      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
+  description:  "Colorful 2048 game uploaded successfully to the TT FPGA with game pmod!"      # One line description of what your project does
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
   clock_hz:     25175000       # Clock frequency in Hz (or 0 if not applicable)
 
