@@ -24,7 +24,8 @@ Link to the 3D viewer: [https://gds-viewer.tinytapeout.com/?model=https://alexan
 
 
 ## Stats
-<img width="705" height="597" alt="Screenshot 2026-06-14 at 2 31 54 PM" src="https://github.com/user-attachments/assets/00a9b3b7-0026-4175-b8a4-a3fc336c8c76" />
+<img width="713" height="655" alt="Screenshot 2026-06-14 at 4 19 09 PM" src="https://github.com/user-attachments/assets/8b453bdc-5844-4661-95a5-29ca7bb8562b" />
+
 
 
 
