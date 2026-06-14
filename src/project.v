@@ -31,7 +31,17 @@ module tt_um_AbAdA_2048 (
   assign uio_out = 8'b00000000;
   assign uio_oe  = 8'b00000000;
 
-  wire _unused_ok = &{ena, ui_in [ 7 ] , ui_in [ 3 : 0 ] , uio_in};
+  // --------------------------------------------------------------------------
+  // DIRECT HARDWARE INPUT DEFINITIONS (Mapped to match arrow & start layouts)
+  // --------------------------------------------------------------------------
+  wire btn_left_in     = ui_in [ 0 ] ;
+  wire btn_right_in    = ui_in [ 1 ] ;
+  wire btn_up_in       = ui_in [ 2 ] ;
+  wire btn_down_in     = ui_in [ 3 ] ;
+  wire retro_colors_in = ui_in [ 4 ] ;
+  wire btn_start_in    = ui_in [ 7 ] ;
+
+  wire _unused_ok = &{ena, uio_in};
 
   // Intermediate VGA Wires
   wire hsync_w;
@@ -55,9 +65,9 @@ module tt_um_AbAdA_2048 (
   // --------------------------------------------------------------------------
   (* keep = "true" *) reg r_out_hsync;
   (* keep = "true" *) reg r_out_vsync;
-  (* keep = "true" *) reg [1:0] r_out_R;
-  (* keep = "true" *) reg [1:0] r_out_G;
-  (* keep = "true" *) reg [1:0] r_out_B;
+  (* keep = "true" *) reg [ 1 : 0 ] r_out_R;
+  (* keep = "true" *) reg [ 1 : 0 ] r_out_G;
+  (* keep = "true" *) reg [ 1 : 0 ] r_out_B;
 
   assign uo_out [ 7 ] = r_out_hsync;
   assign uo_out [ 6 ] = r_out_B [ 0 ] ;
@@ -115,6 +125,9 @@ module tt_um_AbAdA_2048 (
       .a(), .x(), .l(), .r()
   );
 
+  // --------------------------------------------------------------------------
+  // INPUT SYNCHRONIZERS PIPELINE (Parallelized UI and Driver Inputs)
+  // --------------------------------------------------------------------------
   reg sync_up_0,    sync_up_1;
   reg sync_down_0,  sync_down_1;
   reg sync_left_0,  sync_left_1;
@@ -129,11 +142,12 @@ module tt_um_AbAdA_2048 (
       sync_right_0 <= 0; sync_right_1 <= 0;
       sync_start_0 <= 0; sync_start_1 <= 0;
     end else begin
-      sync_up_0    <= raw_up;    sync_up_1    <= sync_up_0;
-      sync_down_0  <= raw_down;  sync_down_1  <= sync_down_0;
-      sync_left_0  <= raw_left;  sync_left_1  <= sync_left_0;
-      sync_right_0 <= raw_right; sync_right_1 <= sync_right_0;
-      sync_start_0 <= raw_start; sync_start_1 <= sync_start_0;
+      // Combines UI Parallel Pins with Gamepad Serializer Inputs via Bitwise OR
+      sync_up_0    <= raw_up    | btn_up_in;    sync_up_1    <= sync_up_0;
+      sync_down_0  <= raw_down  | btn_down_in;  sync_down_1  <= sync_down_0;
+      sync_left_0  <= raw_left  | btn_left_in;  sync_left_1  <= sync_left_0;
+      sync_right_0 <= raw_right | btn_right_in; sync_right_1 <= sync_right_0;
+      sync_start_0 <= raw_start | btn_start_in; sync_start_1 <= sync_start_0;
     end
   end
 
@@ -184,7 +198,7 @@ module tt_um_AbAdA_2048 (
   reg           any_moved;
   reg [ 4 : 0 ] reset_idx;
 
-  function [3:0] get_board_idx(input [1:0] lane_num, input [1:0] cell_pos, input [1:0] dir);
+  function [ 3 : 0 ] get_board_idx(input [ 1 : 0 ] lane_num, input [ 1 : 0 ] cell_pos, input [ 1 : 0 ] dir);
     begin
       case (dir)
         2'd0: get_board_idx = {lane_num, ~cell_pos};       // Left (Scan Right to Left)
@@ -195,18 +209,18 @@ module tt_um_AbAdA_2048 (
     end
   endfunction
 
-  reg [3:0] spawn_base;
-  reg [3:0] spawn_offset;
-  wire [3:0] current_spawn_check = spawn_base + spawn_offset;
+  reg [ 3 : 0 ] spawn_base;
+  reg [ 3 : 0 ] spawn_offset;
+  wire [ 3 : 0 ] current_spawn_check = spawn_base + spawn_offset;
   
   // Fast address and data registers to completely sever long combinational chains
-  reg [3:0] r_idx0, r_idx1, r_idx2, r_idx3;
-  reg [3:0] v0, v1, v2, v3;
+  reg [ 3 : 0 ] r_idx0, r_idx1, r_idx2, r_idx3;
+  reg [ 3 : 0 ] v0, v1, v2, v3;
 
   // Variables for the architectural cascade math
-  reg [3:0] c0, c1, c2, c3;
-  reg [3:0] combinational_f0, combinational_f1, combinational_f2, combinational_f3;
-  reg [3:0] s0, s1, s2, s3;
+  reg [ 3 : 0 ] c0, c1, c2, c3;
+  reg [ 3 : 0 ] combinational_f0, combinational_f1, combinational_f2, combinational_f3;
+  reg [ 3 : 0 ] s0, s1, s2, s3;
   
   // Isolated processing matrix using deterministic bubble-shifter
   always @(*) begin
@@ -278,7 +292,7 @@ module tt_um_AbAdA_2048 (
   end
 
   // Intermediate Storage Registers
-  reg [3:0] r_f0, r_f1, r_f2, r_f3;
+  reg [ 3 : 0 ] r_f0, r_f1, r_f2, r_f3;
 
   always @(posedge clk) begin
     if (sys_rst) begin
@@ -291,7 +305,7 @@ module tt_um_AbAdA_2048 (
       v0 <= 0; v1 <= 0; v2 <= 0; v3 <= 0;
       
       for (reset_idx = 0; reset_idx < 16; reset_idx = reset_idx + 1) begin
-        board [ reset_idx [3:0] ] <= 4'd0;
+        board [ reset_idx [ 3 : 0 ] ] <= 4'd0;
       end
       board [ 2 ]  <= 4'd1; 
       board [ 10 ] <= 4'd1; 
@@ -308,8 +322,8 @@ module tt_um_AbAdA_2048 (
           any_moved      <= 1'b0;
           if (press_start) begin
             for (reset_idx = 0; reset_idx < 16; reset_idx = reset_idx + 1) begin
-              if (reset_idx[3:0] == lfsr[3:0]) board [ reset_idx[3:0] ] <= 4'd1;
-              else                             board [ reset_idx[3:0] ] <= 4'd0;
+              if (reset_idx [ 3 : 0 ] == lfsr [ 3 : 0 ] ) board [ reset_idx [ 3 : 0 ] ] <= 4'd1;
+              else                                        board [ reset_idx [ 3 : 0 ] ] <= 4'd0;
             end
           end else if (press_left)  begin game_state <= STATE_PREP; move_dir <= 2'd0; r_idx0 <= get_board_idx(2'd0, 2'd0, 2'd0); r_idx1 <= get_board_idx(2'd0, 2'd1, 2'd0); r_idx2 <= get_board_idx(2'd0, 2'd2, 2'd0); r_idx3 <= get_board_idx(2'd0, 2'd3, 2'd0); end
           else if (press_right) begin game_state <= STATE_PREP; move_dir <= 2'd1; r_idx0 <= get_board_idx(2'd0, 2'd0, 2'd1); r_idx1 <= get_board_idx(2'd0, 2'd1, 2'd1); r_idx2 <= get_board_idx(2'd0, 2'd2, 2'd1); r_idx3 <= get_board_idx(2'd0, 2'd3, 2'd1); end
@@ -318,10 +332,10 @@ module tt_um_AbAdA_2048 (
         end
 
         STATE_PREP: begin
-          v0 <= board[r_idx0];
-          v1 <= board[r_idx1];
-          v2 <= board[r_idx2];
-          v3 <= board[r_idx3];
+          v0 <= board [ r_idx0 ] ;
+          v1 <= board [ r_idx1 ] ;
+          v2 <= board [ r_idx2 ] ;
+          v3 <= board [ r_idx3 ] ;
           game_state <= STATE_CALC;
         end
 
@@ -334,10 +348,10 @@ module tt_um_AbAdA_2048 (
         end
 
         STATE_STORE: begin
-          board[r_idx0] <= r_f0;
-          board[r_idx1] <= r_f1;
-          board[r_idx2] <= r_f2;
-          board[r_idx3] <= r_f3;
+          board [ r_idx0 ] <= r_f0;
+          board [ r_idx1 ] <= r_f1;
+          board [ r_idx2 ] <= r_f2;
+          board [ r_idx3 ] <= r_f3;
           
           if ((v0 != r_f0) || (v1 != r_f1) || (v2 != r_f2) || (v3 != r_f3)) begin
             any_moved <= 1'b1;
@@ -349,7 +363,7 @@ module tt_um_AbAdA_2048 (
           if (current_lane == 2'd3) begin
             if (any_moved) begin
               game_state   <= STATE_SPAWN;
-              spawn_base   <= lfsr[3:0];
+              spawn_base   <= lfsr [ 3 : 0 ] ;
               spawn_offset <= 4'd0;
             end else begin
               game_state   <= STATE_IDLE;
@@ -367,11 +381,11 @@ module tt_um_AbAdA_2048 (
         end
 
         STATE_SPAWN: begin
-          if (board[current_spawn_check] == 4'd0) begin
+          if (board [ current_spawn_check ] == 4'd0) begin
             if ((lfsr ^ lfsr) == 1'b1) begin
-              board[current_spawn_check] <= 4'd2; 
+              board [ current_spawn_check ] <= 4'd2; 
             end else begin
-              board[current_spawn_check] <= 4'd1; 
+              board [ current_spawn_check ] <= 4'd1; 
             end
             game_state <= STATE_IDLE;
           end else begin
@@ -406,8 +420,8 @@ module tt_um_AbAdA_2048 (
   wire [ 1 : 0 ] tile_row = (r_grid_y < 96) ? 2'd0 : (r_grid_y < 192) ? 2'd1 : (r_grid_y < 288) ? 2'd2 : 2'd3;
   wire [ 3 : 0 ] tile_idx = {tile_row, tile_col};
 
-  wire [ 6 : 0 ] local_x = (tile_col == 2'd0) ? r_grid_x [6:0] : (tile_col == 2'd1) ? r_grid_x [6:0] - 7'd96 : (tile_col == 2'd2) ? r_grid_x [6:0] - 7'd192 : r_grid_x [6:0] - 7'd288;
-  wire [ 6 : 0 ] local_y = (tile_row == 2'd0) ? r_grid_y [6:0] : (tile_row == 2'd1) ? r_grid_y [6:0] - 7'd96 : (tile_row == 2'd2) ? r_grid_y [6:0] - 7'd192 : r_grid_y [6:0] - 7'd288;
+  wire [ 6 : 0 ] local_x = (tile_col == 2'd0) ? r_grid_x [ 6 : 0 ] : (tile_col == 2'd1) ? r_grid_x [ 6 : 0 ] - 7'd96 : (tile_col == 2'd2) ? r_grid_x [ 6 : 0 ] - 7'd192 : r_grid_x [ 6 : 0 ] - 7'd288;
+  wire [ 6 : 0 ] local_y = (tile_row == 2'd0) ? r_grid_y [ 6 : 0 ] : (tile_row == 2'd1) ? r_grid_y [ 6 : 0 ] - 7'd96 : (tile_row == 2'd2) ? r_grid_y [ 6 : 0 ] - 7'd192 : r_grid_y [ 6 : 0 ] - 7'd288;
 
   // --------------------------------------------------------------------------
   // PIPELINED VIDEO RENDERING STAGES
@@ -433,19 +447,19 @@ module tt_um_AbAdA_2048 (
   wire in_font_bounding_box = (font_x < 40) && (font_y < 30);
 
   wire [ 1 : 0 ] char_select = (font_x < 10) ? 2'd0 : (font_x < 20) ? 2'd1 : (font_x < 30) ? 2'd2 : 2'd3;
-  wire [ 3 : 0 ] sub_x        = (font_x < 10) ? font_x [3:0] : (font_x < 20) ? font_x [3:0] - 4'd10 : (font_x < 30) ? font_x [3:0] - 4'd20 : font_x [3:0] - 4'd30;
+  wire [ 3 : 0 ] sub_x        = (font_x < 10) ? font_x [ 3 : 0 ] : (font_x < 20) ? font_x [ 3 : 0 ] - 4'd10 : (font_x < 30) ? font_x [ 3 : 0 ] - 4'd20 : font_x [ 3 : 0 ] - 4'd30;
 
   wire [ 1 : 0 ] bit_x = (sub_x < 3) ? 2'd0 : (sub_x < 6) ? 2'd1 : 2'd2;
   wire [ 2 : 0 ] bit_y = (font_y < 6) ? 3'd0 : (font_y < 12) ? 3'd1 : (font_y < 18) ? 3'd2 : (font_y < 24) ? 3'd3 : 3'd4;
 
-  localparam [14:0] G_1 = 15'b010_110_010_010_111;
-  localparam [14:0] G_2 = 15'b111_001_111_100_111;
-  localparam [14:0] G_3 = 15'b111_001_111_001_111;
-  localparam [14:0] G_4 = 15'b101_101_111_001_001;
-  localparam [14:0] G_5 = 15'b111_100_111_001_111;
-  localparam [14:0] G_6 = 15'b111_100_111_101_111;
-  localparam [14:0] G_8 = 15'b111_101_111_101_111;
-  localparam [14:0] G_0 = 15'b111_101_101_101_111;
+  localparam [ 14 : 0 ] G_1 = 15'b010_110_010_010_111;
+  localparam [ 14 : 0 ] G_2 = 15'b111_001_111_100_111;
+  localparam [ 14 : 0 ] G_3 = 15'b111_001_111_001_111;
+  localparam [ 14 : 0 ] G_4 = 15'b101_101_111_001_001;
+  localparam [ 14 : 0 ] G_5 = 15'b111_100_111_001_111;
+  localparam [ 14 : 0 ] G_6 = 15'b111_100_111_101_111;
+  localparam [ 14 : 0 ] G_8 = 15'b111_101_111_101_111;
+  localparam [ 14 : 0 ] G_0 = 15'b111_101_101_101_111;
 
   reg [ 14 : 0 ] combinational_digit_rom;
   always @(*) begin
@@ -519,7 +533,7 @@ module tt_um_AbAdA_2048 (
     r_tile_color_s3 <= combinational_tile_color;
   end
 
-  wire [3:0] target_bit_index = (r_bit_y * 2'd3) + {2'b00, r_bit_x};
+  wire [ 3 : 0 ] target_bit_index = (r_bit_y * 2'd3) + {2'b00, r_bit_x};
   wire active_num_pixel = (r_is_tile_box && r_sub_x_valid) ? r_digit_rom [ 4'd14 - target_bit_index ] : 1'b0;
 
   // Final Output Packaging
